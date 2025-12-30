@@ -306,7 +306,7 @@ export const Home: React.FC = () => {
                       </div>
                       <div className="flex gap-2 items-center flex-wrap justify-end">
                         {log.actions.food && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-medium">飼料</span>}
-                        {log.actions.water && <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-md text-xs font-medium">飲水</span>}
+                        {log.actions.water && <span className="bg-[#921AFF]/10 text-[#921AFF] px-2 py-1 rounded-md text-xs font-medium">飲水</span>}
                         {log.actions.litter && (
                           <div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md text-xs font-medium border border-emerald-100">
                             <span className="mr-1">貓砂</span>

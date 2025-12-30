@@ -20,10 +20,10 @@ export const StatusCard: React.FC<StatusCardProps> = ({ type, progress }) => {
     water: {
       label: '更換飲水',
       icon: Droplets,
-      color: 'bg-purple-100',
-      activeColor: 'bg-purple-400',
-      textColor: 'text-purple-700',
-      checkColor: 'bg-purple-500',
+      color: 'bg-[#921AFF]/10',
+      activeColor: 'bg-[#921AFF]',
+      textColor: 'text-[#921AFF]',
+      checkColor: 'bg-[#921AFF]',
     },
     litter: {
       label: '清理貓砂',

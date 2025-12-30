@@ -290,8 +290,8 @@ export const AddLog: React.FC = () => {
                                     label="更換飲水"
                                     icon={Droplets}
                                     active={actions.water}
-                                    activeColorClass="bg-purple-50 border-purple-200"
-                                    activeIconClass="text-purple-600"
+                                    activeColorClass="bg-[#921AFF]/5 border-[#921AFF]/20"
+                                    activeIconClass="text-[#921AFF]"
                                 />
 
                                 {/* Litter Section with details */}
