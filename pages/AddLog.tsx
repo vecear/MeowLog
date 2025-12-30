@@ -220,8 +220,8 @@ export const AddLog: React.FC = () => {
                         {/* Date Time Selection */}
                         <section className="bg-white p-5 rounded-2xl shadow-sm space-y-4">
                             <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider">時間</h3>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
+                            <div className="flex gap-2">
+                                <div className="space-y-1 flex-1 min-w-0">
                                     <label className="text-xs text-stone-400">日期</label>
                                     <input
                                         type="date"
@@ -231,7 +231,7 @@ export const AddLog: React.FC = () => {
                                         required
                                     />
                                 </div>
-                                <div className="space-y-1">
+                                <div className="space-y-1 flex-1 min-w-0">
                                     <label className="text-xs text-stone-400">時間</label>
                                     <input
                                         type="time"
