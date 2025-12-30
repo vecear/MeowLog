@@ -231,6 +231,7 @@ export const Home: React.FC = () => {
               CCL: <span className="text-lg">{cclScore}</span> 分
             </div>
           </div>
+          <p className="text-center text-xs text-stone-400 mb-1">最初から</p>
           <div className="flex justify-center gap-6 items-center text-xs text-stone-400 mb-4">
             <div className="text-center">
               總積分: <span className="text-orange-400 font-medium">{ruruAllTime}</span>
