@@ -243,7 +243,7 @@ export const AddLog: React.FC = () => {
                                         type="date"
                                         value={date}
                                         onChange={(e) => setDate(e.target.value)}
-                                        className="w-full min-w-0 h-12 bg-stone-50 border border-stone-200 rounded-xl px-1 text-sm text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 text-center tracking-tight"
+                                        className="w-full min-w-0 h-12 appearance-none py-0 bg-stone-50 border border-stone-200 rounded-xl px-1 text-sm text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 text-center tracking-tight"
                                         required
                                     />
                                 </div>
@@ -253,7 +253,7 @@ export const AddLog: React.FC = () => {
                                         type="time"
                                         value={time}
                                         onChange={(e) => setTime(e.target.value)}
-                                        className="w-full min-w-0 h-12 bg-stone-50 border border-stone-200 rounded-xl px-0 text-sm text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 text-center tracking-tight"
+                                        className="w-full min-w-0 h-12 appearance-none py-0 bg-stone-50 border border-stone-200 rounded-xl px-0 text-sm text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 text-center tracking-tight"
                                         required
                                     />
                                 </div>

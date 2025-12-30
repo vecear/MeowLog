@@ -4,6 +4,7 @@ import { Plus, CalendarDays, Sparkles, Droplets, XCircle, CheckCircle, HelpCircl
 import { StatusCard } from '../components/StatusCard';
 import { getTodayStatus, getLogs, deleteLog } from '../services/storage';
 import { CareLog } from '../types';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -114,29 +115,53 @@ export const Home: React.FC = () => {
     );
   };
 
-  // Calculate weekly scores
-  const calculateWeeklyScores = () => {
-    const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 is Sunday
-    const startOfWeek = new Date(now);
-    startOfWeek.setHours(0, 0, 0, 0);
-    startOfWeek.setDate(now.getDate() - dayOfWeek);
 
-    let ruruScore = 0;
-    let cclScore = 0;
 
-    logs.forEach(log => {
-      if (log.timestamp >= startOfWeek.getTime()) {
-        const points = (log.actions.litter ? 2 : 0) + (log.actions.food ? 1 : 0) + (log.actions.water ? 1 : 0);
-        if (log.author === 'RURU') ruruScore += points;
-        if (log.author === 'CCL') cclScore += points;
-      }
-    });
+  // ... (existing helper functions)
 
-    return { ruruScore, cclScore };
+  // Calculate scores for the last 7 days
+  const getScoreData = () => {
+    const today = new Date();
+    const data = [];
+    let totalRuru = 0;
+    let totalCcl = 0;
+
+    // Create array for last 7 days (including today)
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const dayEnd = dayStart + 86400000;
+      const dateStr = d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+
+      let ruruDayScore = 0;
+      let cclDayScore = 0;
+
+      logs.forEach(log => {
+        if (log.timestamp >= dayStart && log.timestamp < dayEnd) {
+          const points = (log.actions.litter ? 2 : 0) + (log.actions.food ? 1 : 0) + (log.actions.water ? 1 : 0);
+          if (log.author === 'RURU') {
+            ruruDayScore += points;
+            totalRuru += points;
+          }
+          if (log.author === 'CCL') {
+            cclDayScore += points;
+            totalCcl += points;
+          }
+        }
+      });
+
+      data.push({
+        date: dateStr,
+        RURU: ruruDayScore,
+        CCL: cclDayScore
+      });
+    }
+
+    return { data, totalRuru, totalCcl };
   };
 
-  const { ruruScore, cclScore } = calculateWeeklyScores();
+  const { data: chartData, totalRuru: ruruScore, totalCcl: cclScore } = getScoreData();
   const winner = ruruScore > cclScore ? 'RURU' : cclScore > ruruScore ? 'CCL' : '兩人';
 
   return (
@@ -181,17 +206,60 @@ export const Home: React.FC = () => {
         {/* Weekly Scoreboard */}
         <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 mb-4 border border-orange-100">
           <h3 className="text-center font-bold text-stone-700 mb-2">
-            本週小賀更愛 <span className="text-orange-600 text-xl">{winner}</span>
+            本週小賀更愛 <span className={`text-xl ${winner === 'RURU' ? 'text-orange-500' : winner === 'CCL' ? 'text-blue-500' : 'text-stone-600'}`}>{winner}</span>
           </h3>
-          <div className="flex justify-center gap-8 items-center text-sm font-medium text-stone-500">
-            <div className={`text-center ${ruruScore > cclScore ? 'scale-110 font-bold text-orange-600' : ''} transition-transform`}>
+          <div className="flex justify-center gap-8 items-center text-sm font-medium mb-6">
+            <div className={`text-center text-orange-500 ${ruruScore > cclScore ? 'scale-110 font-bold' : ''} transition-transform`}>
               RURU: <span className="text-lg">{ruruScore}</span> 分
             </div>
             <div className="h-4 w-px bg-stone-300"></div>
-            <div className={`text-center ${cclScore > ruruScore ? 'scale-110 font-bold text-orange-600' : ''} transition-transform`}>
+            <div className={`text-center text-blue-500 ${cclScore > ruruScore ? 'scale-110 font-bold' : ''} transition-transform`}>
               CCL: <span className="text-lg">{cclScore}</span> 分
             </div>
           </div>
+
+          <div className="h-[72px] w-full mb-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#fed7aa" opacity={0.5} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: '#78716c' }}
+                  axisLine={false}
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: '#78716c' }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  itemStyle={{ fontSize: '12px' }}
+                  labelStyle={{ fontSize: '12px', color: '#78716c', marginBottom: '4px' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="RURU"
+                  stroke="#f97316"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: '#f97316', strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="CCL"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: '#3b82f6', strokeWidth: 0 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
           <div className="text-[10px] text-stone-400 text-center mt-2 opacity-70">
             (飼料/水 +1, 貓砂 +2)
           </div>
@@ -227,7 +295,7 @@ export const Home: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <span className={`
                                 text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wider
-                                ${log.author === 'RURU' ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'}
+                                ${log.author === 'RURU' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}
                             `}>
                             {log.author || '未知'}
                           </span>
