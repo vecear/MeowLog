@@ -70,9 +70,9 @@ export const AddLog: React.FC = () => {
 
         // Validate litter details if litter is selected
         if (actions.litter) {
-            // Must select either "乾淨不用清" OR both urine status and stool type
-            if (!isLitterClean && (!urineStatus || !stoolType)) {
-                alert("請選擇「乾淨不用清」或是填寫尿尿狀態及便便狀態！");
+            // Must select either "乾淨不用清" OR at least one of urine status/stool type
+            if (!isLitterClean && !urineStatus && !stoolType) {
+                alert("請選擇「乾淨不用清」或是填寫尿尿狀態或便便狀態！");
                 return;
             }
         }
