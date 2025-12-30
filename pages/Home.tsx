@@ -164,6 +164,19 @@ export const Home: React.FC = () => {
   const { data: chartData, totalRuru: ruruScore, totalCcl: cclScore } = getScoreData();
   const winner = ruruScore > cclScore ? 'RURU' : cclScore > ruruScore ? 'CCL' : '兩人';
 
+  // Calculate all-time total scores
+  const getAllTimeTotals = () => {
+    let ruruTotal = 0;
+    let cclTotal = 0;
+    logs.forEach(log => {
+      const points = (log.actions.litter ? 2 : 0) + (log.actions.food ? 1 : 0) + (log.actions.water ? 1 : 0);
+      if (log.author === 'RURU') ruruTotal += points;
+      if (log.author === 'CCL') cclTotal += points;
+    });
+    return { ruruTotal, cclTotal };
+  };
+  const { ruruTotal: ruruAllTime, cclTotal: cclAllTime } = getAllTimeTotals();
+
   return (
     <div className="space-y-8 animate-fade-in">
 
