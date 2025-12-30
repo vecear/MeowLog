@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CalendarDays, Sparkles, Droplets, XCircle, CheckCircle, HelpCircle, AlertCircle, Trash2, Edit, RefreshCw } from 'lucide-react';
+import { Plus, CalendarDays, Sparkles, Droplets, XCircle, CheckCircle, HelpCircle, AlertCircle, Trash2, Edit, RefreshCw, Settings as SettingsIcon } from 'lucide-react';
 import { StatusCard } from '../components/StatusCard';
 import { getTodayStatus, getLogs, deleteLog } from '../services/storage';
 import { CareLog } from '../types';
@@ -114,8 +114,51 @@ export const Home: React.FC = () => {
     );
   };
 
+  // Calculate weekly scores
+  const calculateWeeklyScores = () => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 is Sunday
+    const startOfWeek = new Date(now);
+    startOfWeek.setHours(0, 0, 0, 0);
+    startOfWeek.setDate(now.getDate() - dayOfWeek);
+
+    let ruruScore = 0;
+    let cclScore = 0;
+
+    logs.forEach(log => {
+      if (log.timestamp >= startOfWeek.getTime()) {
+        const points = (log.actions.litter ? 2 : 0) + (log.actions.food ? 1 : 0) + (log.actions.water ? 1 : 0);
+        if (log.author === 'RURU') ruruScore += points;
+        if (log.author === 'CCL') cclScore += points;
+      }
+    });
+
+    return { ruruScore, cclScore };
+  };
+
+  const { ruruScore, cclScore } = calculateWeeklyScores();
+  const winner = ruruScore > cclScore ? 'RURU' : cclScore > ruruScore ? 'CCL' : '兩人';
+
   return (
     <div className="space-y-8 animate-fade-in">
+
+      <header className="bg-white p-4 shadow-sm z-10 sticky top-0">
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-2xl font-black text-stone-800 tracking-tight flex items-center gap-2">
+            <span className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-lg">🐱</span>
+            小賀Log
+          </h1>
+          <button
+            onClick={() => navigate('/settings')}
+            className="p-2 text-stone-400 hover:bg-stone-50 rounded-full transition-colors"
+          >
+            <SettingsIcon className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="text-xs text-stone-400 text-center -mt-2 mb-2">
+          程式最後更新: 2025/12/30 09:15
+        </div>
+      </header>
 
       {/* Today's Status Section */}
       <section>
@@ -133,6 +176,27 @@ export const Home: React.FC = () => {
             {new Date().toLocaleDateString('zh-TW', { weekday: 'long', month: 'long', day: 'numeric' })}
           </span>
         </div>
+
+
+        {/* Weekly Scoreboard */}
+        <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 mb-4 border border-orange-100">
+          <h3 className="text-center font-bold text-stone-700 mb-2">
+            本週小賀更愛 <span className="text-orange-600 text-xl">{winner}</span>
+          </h3>
+          <div className="flex justify-center gap-8 items-center text-sm font-medium text-stone-500">
+            <div className={`text-center ${ruruScore > cclScore ? 'scale-110 font-bold text-orange-600' : ''} transition-transform`}>
+              RURU: <span className="text-lg">{ruruScore}</span> 分
+            </div>
+            <div className="h-4 w-px bg-stone-300"></div>
+            <div className={`text-center ${cclScore > ruruScore ? 'scale-110 font-bold text-orange-600' : ''} transition-transform`}>
+              CCL: <span className="text-lg">{cclScore}</span> 分
+            </div>
+          </div>
+          <div className="text-[10px] text-stone-400 text-center mt-2 opacity-70">
+            (飼料/水 +1, 貓砂 +2)
+          </div>
+        </div>
+
         <div className="grid grid-cols-3 gap-3">
           <StatusCard type="food" progress={status.food} />
           <StatusCard type="water" progress={status.water} />

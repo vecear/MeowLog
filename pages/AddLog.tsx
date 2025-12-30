@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Utensils, Droplets, Trash2, User, AlertCircle, CheckCircle, HelpCircle, XCircle, Sparkles } from 'lucide-react';
+import { ArrowLeft, Save, Utensils, Droplets, Trash2, User, AlertCircle, CheckCircle, HelpCircle, XCircle, Sparkles, Clock } from 'lucide-react';
 import { saveLog, getLog, updateLog } from '../services/storage';
 import { CareLog, StoolType, UrineStatus } from '../types';
 import { useParams } from 'react-router-dom';
@@ -71,7 +71,7 @@ export const AddLog: React.FC = () => {
         setIsSubmitting(true);
         try {
 
-            const timestamp = new Date(`${date}T${time}`).getTime();
+            // Duplicate declaration removed
             const logData: CareLog = {
                 id: isEditMode && id ? id : crypto.randomUUID(), // ID needed for type but ignored by save, used by update
                 timestamp,
@@ -131,6 +131,12 @@ export const AddLog: React.FC = () => {
             if (newVal) setIsLitterClean(false);
             return newVal;
         });
+    };
+
+    const handleSetCurrentTime = () => {
+        const now = new Date();
+        setDate(now.toISOString().split('T')[0]);
+        setTime(now.toTimeString().slice(0, 5));
     };
 
     const ActionButton = ({
@@ -219,9 +225,19 @@ export const AddLog: React.FC = () => {
 
                         {/* Date Time Selection */}
                         <section className="bg-white p-5 rounded-2xl shadow-sm space-y-4">
-                            <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider">時間</h3>
-                            <div className="flex gap-2">
-                                <div className="space-y-1 flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs font-bold text-stone-500 uppercase tracking-wider">時間</label>
+                                <button
+                                    type="button"
+                                    onClick={handleSetCurrentTime}
+                                    className="text-xs flex items-center gap-1 px-2 py-1 rounded-md bg-stone-100 text-stone-500 hover:bg-stone-200 transition-colors"
+                                >
+                                    <Clock className="w-3 h-3" />
+                                    現在時間
+                                </button>
+                            </div>
+                            <div className="flex w-full">
+                                <div className="space-y-1 flex-1 min-w-0 mr-3">
                                     <label className="text-xs text-stone-400">日期</label>
                                     <input
                                         type="date"
