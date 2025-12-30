@@ -177,15 +177,35 @@ export const Home: React.FC = () => {
   };
   const { ruruTotal: ruruAllTime, cclTotal: cclAllTime } = getAllTimeTotals();
 
+  // Generate random cat message
+  const generateCatMessage = () => {
+    const parts = ['喵', '~', '!'];
+    const additionalLength = Math.floor(Math.random() * 19) + 1; // 1 to 19 more chars
+    let message = '喵'; // Always start with 喵
+    for (let i = 0; i < additionalLength; i++) {
+      message += parts[Math.floor(Math.random() * parts.length)];
+    }
+    return message;
+  };
+  const catMessage = generateCatMessage();
+
   return (
     <div className="space-y-8 animate-fade-in">
 
       <header className="bg-white p-4 shadow-sm z-10 sticky top-0">
-        <div className="flex items-center justify-between mb-2">
-          <h1 className="text-2xl font-black text-stone-800 tracking-tight flex items-center gap-2">
-            <span className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-lg">🐱</span>
-            小賀Log
-          </h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-stone-800 tracking-tight flex items-center gap-2">
+              <span className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-lg">🐱</span>
+              小賀の生活日記
+            </h1>
+            <button
+              onClick={() => window.location.reload()}
+              className="p-1.5 rounded-full hover:bg-stone-100 text-stone-400 transition-all"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
           <button
             onClick={() => navigate('/settings')}
             className="p-2 text-stone-400 hover:bg-stone-50 rounded-full transition-colors"
@@ -193,36 +213,16 @@ export const Home: React.FC = () => {
             <SettingsIcon className="w-6 h-6" />
           </button>
         </div>
-        <div className="text-xs text-stone-400 text-center -mt-2 mb-2">
-          程式最後更新: 2025/12/30 09:15
+        <div className="text-center text-xs text-stone-400 mt-2">
+          {new Date().toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' })}
+        </div>
+        <div className="text-center text-xs text-stone-400 mt-1">
+          小賀想說: {catMessage}
         </div>
       </header>
 
-      {/* Today's Status Section */}
+      {/* Weekly Scoreboard */}
       <section>
-        <div className="flex items-center justify-between mb-4 px-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-stone-800">今日任務</h2>
-            <button
-              onClick={() => window.location.reload()}
-              className={`p-1.5 rounded-full hover:bg-stone-100 text-stone-400 transition-all ${isRefreshing ? 'animate-spin text-stone-600 bg-stone-100' : ''}`}
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-          <span className="text-sm text-stone-500 bg-white px-3 py-1 rounded-full shadow-sm">
-            {new Date().toLocaleDateString('zh-TW', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </span>
-        </div>
-
-
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <StatusCard type="food" progress={status.food} />
-          <StatusCard type="water" progress={status.water} />
-          <StatusCard type="litter" progress={status.litter} />
-        </div>
-
-        {/* Weekly Scoreboard */}
         <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 mb-4 border border-orange-100">
           <h3 className="text-center font-bold text-stone-700 mb-1">
             本週小賀更愛 <span className={`text-xl ${winner === 'RURU' ? 'text-orange-500' : winner === 'CCL' ? 'text-blue-500' : 'text-stone-600'}`}>{winner}</span>
@@ -287,6 +287,19 @@ export const Home: React.FC = () => {
           <div className="text-[10px] text-stone-400 text-center mt-2 opacity-70">
             (飼料/水 +1, 貓砂 +2)
           </div>
+        </div>
+      </section>
+
+      {/* Today's Status Section */}
+      <section>
+        <div className="flex items-center mb-4 px-1">
+          <h2 className="text-xl font-bold text-stone-800">今日任務</h2>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <StatusCard type="food" progress={status.food} />
+          <StatusCard type="water" progress={status.water} />
+          <StatusCard type="litter" progress={status.litter} />
         </div>
       </section>
 
