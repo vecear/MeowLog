@@ -220,14 +220,14 @@ export const AddLog: React.FC = () => {
                         {/* Date Time Selection */}
                         <section className="bg-white p-5 rounded-2xl shadow-sm space-y-4">
                             <h3 className="text-sm font-bold text-stone-500 uppercase tracking-wider">時間</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-2 gap-2">
                                 <div className="space-y-1">
                                     <label className="text-xs text-stone-400">日期</label>
                                     <input
                                         type="date"
                                         value={date}
                                         onChange={(e) => setDate(e.target.value)}
-                                        className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200"
+                                        className="w-full bg-stone-50 border border-stone-200 rounded-xl px-2 py-3 text-sm text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200"
                                         required
                                     />
                                 </div>
@@ -237,7 +237,7 @@ export const AddLog: React.FC = () => {
                                         type="time"
                                         value={time}
                                         onChange={(e) => setTime(e.target.value)}
-                                        className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200"
+                                        className="w-full bg-stone-50 border border-stone-200 rounded-xl px-2 py-3 text-sm text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200"
                                         required
                                     />
                                 </div>
