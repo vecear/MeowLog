@@ -315,7 +315,7 @@ export const Home: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex flex-row gap-1 whitespace-nowrap">
                           <button
                             onClick={(e) => handleEdit(log.id, e)}
                             className="p-1.5 text-stone-300 hover:text-stone-600 hover:bg-stone-50 rounded-full transition-colors"
