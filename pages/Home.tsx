@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CalendarDays, Sparkles, Droplets, XCircle, CheckCircle, HelpCircle, AlertCircle, Trash2 } from 'lucide-react';
+import { Plus, CalendarDays, Sparkles, Droplets, XCircle, CheckCircle, HelpCircle, AlertCircle, Trash2, Edit, RefreshCw } from 'lucide-react';
 import { StatusCard } from '../components/StatusCard';
 import { getTodayStatus, getLogs, deleteLog } from '../services/storage';
 import { CareLog } from '../types';
@@ -13,12 +13,15 @@ export const Home: React.FC = () => {
     litter: { morning: false, afternoon: false, bedtime: false, isComplete: false }
   });
   const [logs, setLogs] = useState<CareLog[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchData = async () => {
+    setIsRefreshing(true);
     const todayStatus = await getTodayStatus();
     const allLogs = await getLogs();
     setStatus(todayStatus);
     setLogs(allLogs);
+    setTimeout(() => setIsRefreshing(false), 500); // Visual delay
   };
 
   useEffect(() => {
@@ -36,6 +39,11 @@ export const Home: React.FC = () => {
         alert('刪除失敗');
       }
     }
+  };
+
+  const handleEdit = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/edit/${id}`);
   };
 
   // Group logs by date for the last 7 days
@@ -112,7 +120,15 @@ export const Home: React.FC = () => {
       {/* Today's Status Section */}
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
-          <h2 className="text-xl font-bold text-stone-800">今日任務</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-stone-800">今日任務</h2>
+            <button
+              onClick={fetchData}
+              className={`p-1.5 rounded-full hover:bg-stone-100 text-stone-400 transition-all ${isRefreshing ? 'animate-spin text-stone-600 bg-stone-100' : ''}`}
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </div>
           <span className="text-sm text-stone-500 bg-white px-3 py-1 rounded-full shadow-sm">
             {new Date().toLocaleDateString('zh-TW', { weekday: 'long', month: 'long', day: 'numeric' })}
           </span>
@@ -166,8 +182,14 @@ export const Home: React.FC = () => {
                           </div>
                         )}
                         <button
+                          onClick={(e) => handleEdit(log.id, e)}
+                          className="ml-2 p-1.5 text-stone-300 hover:text-stone-600 hover:bg-stone-50 rounded-full transition-colors"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={(e) => handleDelete(log.id, e)}
-                          className="ml-2 p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                          className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

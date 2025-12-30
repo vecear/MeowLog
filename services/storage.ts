@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, where, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, where, Timestamp, getDoc, updateDoc } from 'firebase/firestore';
 import { CareLog, DayStatus, TaskProgress } from '../types';
 
 const COLLECTION_NAME = 'logs';
@@ -15,6 +15,20 @@ export const getLogs = async (): Promise<CareLog[]> => {
   } catch (e) {
     console.error("Failed to load logs from Firebase", e);
     return [];
+  }
+};
+
+export const getLog = async (id: string): Promise<CareLog | null> => {
+  try {
+    const docRef = doc(db, COLLECTION_NAME, id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() } as CareLog;
+    }
+    return null;
+  } catch (e) {
+    console.error("Failed to fetch log", e);
+    return null;
   }
 };
 
@@ -41,6 +55,18 @@ export const saveLog = async (log: CareLog): Promise<void> => {
     await addDoc(collection(db, COLLECTION_NAME), logData);
   } catch (e) {
     console.error("Failed to save log to Firebase", e);
+    throw e;
+  }
+};
+
+export const updateLog = async (log: CareLog): Promise<void> => {
+  try {
+    const { id, ...logData } = log;
+    if (!id) throw new Error("Log ID is required for update");
+    const docRef = doc(db, COLLECTION_NAME, id);
+    await updateDoc(docRef, logData);
+  } catch (e) {
+    console.error("Failed to update log", e);
     throw e;
   }
 };
