@@ -236,14 +236,14 @@ export const AddLog: React.FC = () => {
                                     現在時間
                                 </button>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 w-full">
+                            <div className="grid grid-cols-2 gap-5 w-full">
                                 <div className="space-y-1 min-w-0">
                                     <label className="text-xs text-stone-400">日期</label>
                                     <input
                                         type="date"
                                         value={date}
                                         onChange={(e) => setDate(e.target.value)}
-                                        className="w-full bg-stone-50 border border-stone-200 rounded-xl px-2 py-3 text-sm text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 text-center"
+                                        className="w-full bg-stone-50 border border-stone-200 rounded-xl px-1 py-3 text-xs sm:text-sm text-stone-700 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 text-center tracking-tight"
                                         required
                                     />
                                 </div>
