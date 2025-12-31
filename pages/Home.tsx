@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CalendarDays, Sparkles, Droplets, XCircle, CheckCircle, HelpCircle, AlertCircle, Trash2, Edit, RefreshCw, Settings as SettingsIcon, Scale } from 'lucide-react';
+import { Plus, CalendarDays, Sparkles, Droplets, XCircle, CheckCircle, HelpCircle, AlertCircle, Trash2, Edit, RefreshCw, Settings as SettingsIcon, Scale, ChevronUp } from 'lucide-react';
 import { StatusCard } from '../components/StatusCard';
 import { getTodayStatus, getLogs, deleteLog } from '../services/storage';
 import { CareLog } from '../types';
@@ -19,6 +19,7 @@ export const Home: React.FC = () => {
   const [logs, setLogs] = useState<CareLog[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const fetchData = async () => {
     setIsRefreshing(true);
@@ -54,11 +55,13 @@ export const Home: React.FC = () => {
   const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const year = parseInt(e.target.value);
     setSelectedDate(new Date(year, selectedDate.getMonth(), 1));
+    setIsExpanded(false);
   };
 
   const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const month = parseInt(e.target.value);
     setSelectedDate(new Date(selectedDate.getFullYear(), month, 1));
+    setIsExpanded(false);
   };
 
   // Group logs by date for the selected month
@@ -453,65 +456,85 @@ export const Home: React.FC = () => {
               本月尚無紀錄
             </div>
           ) : (
-            monthlyLogs.map((dayGroup) => (
-              <div key={dayGroup.date} className="animate-fade-in-up">
-                <h3 className="text-sm font-bold text-stone-400 mb-2 pl-1">{dayGroup.date}</h3>
-                <div className="space-y-3">
-                  {dayGroup.logs.map((log) => (
-                    <div key={log.id} className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex items-center justify-between relative overflow-hidden group">
-                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-stone-300"></div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`
+            <>
+              {(isExpanded ? monthlyLogs : monthlyLogs.slice(0, 3)).map((dayGroup) => (
+                <div key={dayGroup.date} className="animate-fade-in-up">
+                  <h3 className="text-sm font-bold text-stone-400 mb-2 pl-1">{dayGroup.date}</h3>
+                  <div className="space-y-3">
+                    {dayGroup.logs.map((log) => (
+                      <div key={log.id} className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex items-center justify-between relative overflow-hidden group">
+                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-stone-300"></div>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`
                                 text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wider
                                 ${log.author === 'RURU' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}
                             `}>
-                            {log.author || '未知'}
-                          </span>
-                          <span className="text-xs text-stone-400 font-mono">
-                            {new Date(log.timestamp).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="flex gap-2 items-center flex-wrap justify-end">
-                          {log.actions.food && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-medium">飼料</span>}
-                          {log.actions.water && <span className="bg-[#921AFF]/10 text-[#921AFF] px-2 py-1 rounded-md text-xs font-medium">飲水</span>}
-                          {log.actions.litter && (
-                            <div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md text-xs font-medium border border-emerald-100">
-                              <span className="mr-1">貓砂</span>
-                              {renderLitterDetails(log)}
-                            </div>
-                          )}
-                          {log.actions.grooming && <span className="bg-pink-100 text-pink-700 px-2 py-1 rounded-md text-xs font-medium">梳毛</span>}
-                          {log.actions.medication && <span className="bg-cyan-100 text-cyan-700 px-2 py-1 rounded-md text-xs font-medium">給藥</span>}
-                          {log.weight && (
-                            <span className="bg-[#EA7500]/10 text-[#EA7500] px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1">
-                              <Scale className="w-3 h-3" />
-                              {log.weight.toFixed(1)} kg
+                              {log.author || '未知'}
                             </span>
-                          )}
+                            <span className="text-xs text-stone-400 font-mono">
+                              {new Date(log.timestamp).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-row gap-1 whitespace-nowrap">
-                          <button
-                            onClick={(e) => handleEdit(log.id, e)}
-                            className="p-1.5 text-stone-300 hover:text-stone-600 hover:bg-stone-50 rounded-full transition-colors"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => handleDelete(log.id, e)}
-                            className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="flex gap-2 items-center flex-wrap justify-end">
+                            {log.actions.food && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-medium">飼料</span>}
+                            {log.actions.water && <span className="bg-[#921AFF]/10 text-[#921AFF] px-2 py-1 rounded-md text-xs font-medium">飲水</span>}
+                            {log.actions.litter && (
+                              <div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md text-xs font-medium border border-emerald-100">
+                                <span className="mr-1">貓砂</span>
+                                {renderLitterDetails(log)}
+                              </div>
+                            )}
+                            {log.actions.grooming && <span className="bg-pink-100 text-pink-700 px-2 py-1 rounded-md text-xs font-medium">梳毛</span>}
+                            {log.actions.medication && <span className="bg-cyan-100 text-cyan-700 px-2 py-1 rounded-md text-xs font-medium">給藥</span>}
+                            {log.weight && (
+                              <span className="bg-[#EA7500]/10 text-[#EA7500] px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1">
+                                <Scale className="w-3 h-3" />
+                                {log.weight.toFixed(1)} kg
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-row gap-1 whitespace-nowrap">
+                            <button
+                              onClick={(e) => handleEdit(log.id, e)}
+                              className="p-1.5 text-stone-300 hover:text-stone-600 hover:bg-stone-50 rounded-full transition-colors"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => handleDelete(log.id, e)}
+                              className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+              {!isExpanded && monthlyLogs.length > 3 && (
+                <button
+                  onClick={() => setIsExpanded(true)}
+                  className="w-full py-3 text-stone-500 font-bold text-sm bg-white rounded-xl border border-stone-200 shadow-sm hover:bg-stone-50 hover:text-stone-600 hover:border-stone-300 transition-all flex items-center justify-center gap-2 mt-4"
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  <span>顯示當月所有紀錄 ({monthlyLogs.length} 天)</span>
+                </button>
+              )}
+              {isExpanded && monthlyLogs.length > 3 && (
+                <button
+                  onClick={() => setIsExpanded(false)}
+                  className="w-full py-3 text-stone-500 font-bold text-sm bg-white rounded-xl border border-stone-200 shadow-sm hover:bg-stone-50 hover:text-stone-600 hover:border-stone-300 transition-all flex items-center justify-center gap-2 mt-4"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                  <span>顯示近三天</span>
+                </button>
+              )}
+            </>
           )}
         </div>
       </section >
