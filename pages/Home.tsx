@@ -17,6 +17,7 @@ export const Home: React.FC = () => {
     weight: { morning: false, noon: false, evening: false, bedtime: false, isComplete: false }
   });
   const [logs, setLogs] = useState<CareLog[]>([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const fetchData = async () => {
@@ -50,27 +51,39 @@ export const Home: React.FC = () => {
     navigate(`/edit/${id}`);
   };
 
-  // Group logs by date for the last 7 days
-  const getWeeklyLogs = () => {
-    const weeklyData: { date: string; logs: CareLog[] }[] = [];
-    const today = new Date();
+  const handleYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const year = parseInt(e.target.value);
+    setSelectedDate(new Date(year, selectedDate.getMonth(), 1));
+  };
 
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const dateStr = d.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
-      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const handleMonthChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const month = parseInt(e.target.value);
+    setSelectedDate(new Date(selectedDate.getFullYear(), month, 1));
+  };
+
+  // Group logs by date for the selected month
+  const getMonthlyLogs = () => {
+    const monthlyData: { date: string; logs: CareLog[] }[] = [];
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+
+    // Get number of days in month
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (let i = daysInMonth; i >= 1; i--) {
+      const dayStart = new Date(year, month, i).getTime();
       const dayEnd = dayStart + 86400000;
+      const dateStr = new Date(year, month, i).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
 
       const dayLogs = logs.filter(l => l.timestamp >= dayStart && l.timestamp < dayEnd);
       if (dayLogs.length > 0) {
-        weeklyData.push({ date: dateStr, logs: dayLogs });
+        monthlyData.push({ date: dateStr, logs: dayLogs });
       }
     }
-    return weeklyData;
+    return monthlyData;
   };
 
-  const weeklyLogs = getWeeklyLogs();
+  const monthlyLogs = getMonthlyLogs();
 
   const renderLitterDetails = (log: CareLog) => {
     if (log.isLitterClean) {
@@ -241,7 +254,13 @@ export const Home: React.FC = () => {
       <section>
         <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 mb-4 border border-orange-100">
           <h3 className="text-center font-bold text-stone-700 mb-1">
-            本週小賀更愛 <span className={`text-xl ${winner === 'RURU' ? 'text-orange-500' : winner === 'CCL' ? 'text-blue-500' : 'text-stone-600'}`}>{winner}</span>
+            {ruruScore === 0 && cclScore === 0 ? (
+              <>本週小賀<span className="text-[#CE0000] text-xl">還沒有愛</span></>
+            ) : ruruScore === cclScore ? (
+              <>本週小賀愛兩人<span className="text-[#CE0000] text-xl">一樣多</span></>
+            ) : (
+              <>本週小賀更愛 <span className={`text-xl ${winner === 'RURU' ? 'text-orange-500' : 'text-blue-500'}`}>{winner}</span></>
+            )}
           </h3>
           <p className="text-center text-xs text-stone-400 mb-2">本週給小賀的愛</p>
           <div className="flex justify-center gap-8 items-center text-sm font-medium mb-2">
@@ -383,19 +402,58 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* Weekly Logs Section */}
+      {/* Monthly Logs Section */}
       <section>
-        <div className="flex items-center gap-2 mb-4 px-1">
-          <CalendarDays className="w-5 h-5 text-stone-400" />
-          <h2 className="text-lg font-bold text-stone-700">本週紀錄</h2>
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-2">
+            <CalendarDays className="w-5 h-5 text-stone-400" />
+            <h2 className="text-lg font-bold text-stone-700">月份紀錄</h2>
+            <button
+              onClick={() => setSelectedDate(new Date())}
+              className="p-1 rounded-full hover:bg-stone-100 text-stone-400 hover:text-orange-500 transition-all ml-2"
+              title="回到當月"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2 bg-white rounded-lg p-1 shadow-sm border border-stone-100">
+            <select
+              value={selectedDate.getFullYear()}
+              onChange={handleYearChange}
+              className="bg-transparent text-sm font-bold text-stone-600 py-1.5 px-2 outline-none cursor-pointer hover:bg-stone-50 rounded-md transition-colors appearance-none text-center"
+              style={{ textAlignLast: 'center' }}
+            >
+              {Array.from({ length: 2045 - 2024 + 1 }, (_, i) => {
+                const year = 2024 + i;
+                return (
+                  <option key={year} value={year}>
+                    {year}年
+                  </option>
+                );
+              })}
+            </select>
+            <div className="w-px h-4 bg-stone-200"></div>
+            <select
+              value={selectedDate.getMonth()}
+              onChange={handleMonthChange}
+              className="bg-transparent text-sm font-bold text-stone-600 py-1.5 px-2 outline-none cursor-pointer hover:bg-stone-50 rounded-md transition-colors appearance-none text-center"
+              style={{ textAlignLast: 'center' }}
+            >
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i}>
+                  {i + 1}月
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className="space-y-6">
-          {weeklyLogs.length === 0 ? (
+          {monthlyLogs.length === 0 ? (
             <div className="text-center py-10 text-stone-400 bg-white rounded-xl border border-stone-200 border-dashed">
-              本週尚無紀錄
+              本月尚無紀錄
             </div>
           ) : (
-            weeklyLogs.map((dayGroup) => (
+            monthlyLogs.map((dayGroup) => (
               <div key={dayGroup.date} className="animate-fade-in-up">
                 <h3 className="text-sm font-bold text-stone-400 mb-2 pl-1">{dayGroup.date}</h3>
                 <div className="space-y-3">
