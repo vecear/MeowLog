@@ -12,6 +12,7 @@ export const OnboardingPage: React.FC = () => {
 
     const [petName, setPetName] = useState('');
     const [petType, setPetType] = useState<'CAT' | 'DOG'>('CAT');
+    const [petBirthday, setPetBirthday] = useState('');
 
     const [owners, setOwners] = useState<Owner[]>([
         { id: crypto.randomUUID(), name: '', color: PRESET_COLORS[0] }
@@ -31,13 +32,14 @@ export const OnboardingPage: React.FC = () => {
 
     const handleSave = async () => {
         if (!petName.trim()) return alert('請輸入寵物名字');
+        if (!petBirthday) return alert('請輸入寵物生日');
         if (owners.some(o => !o.name.trim())) return alert('請輸入所有主人的名字');
         if (owners.length === 0) return alert('請至少新增一位主人');
 
         setLoading(true);
         try {
             const settings: AppSettings = {
-                pet: { name: petName, type: petType },
+                pet: { name: petName, type: petType, birthday: petBirthday },
                 owners: owners,
                 isConfigured: true
             };
@@ -84,8 +86,8 @@ export const OnboardingPage: React.FC = () => {
                             <button
                                 onClick={() => setPetType('CAT')}
                                 className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all ${petType === 'CAT'
-                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                        : 'border-gray-100 bg-gray-50 text-gray-400 hover:bg-gray-100'
+                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                    : 'border-gray-100 bg-gray-50 text-gray-400 hover:bg-gray-100'
                                     }`}
                             >
                                 <Cat size={48} />
@@ -94,8 +96,8 @@ export const OnboardingPage: React.FC = () => {
                             <button
                                 onClick={() => setPetType('DOG')}
                                 className={`flex flex-col items-center gap-3 p-6 rounded-2xl border-2 transition-all ${petType === 'DOG'
-                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                        : 'border-gray-100 bg-gray-50 text-gray-400 hover:bg-gray-100'
+                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                    : 'border-gray-100 bg-gray-50 text-gray-400 hover:bg-gray-100'
                                     }`}
                             >
                                 <Dog size={48} />
@@ -103,10 +105,22 @@ export const OnboardingPage: React.FC = () => {
                             </button>
                         </div>
 
+                        {/* Birthday */}
+                        <div className="space-y-1">
+                            <label className="text-sm font-medium text-gray-700 ml-1">寵物生日</label>
+                            <input
+                                type="date"
+                                value={petBirthday}
+                                onChange={(e) => setPetBirthday(e.target.value)}
+                                className="w-full text-lg p-4 bg-gray-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl outline-none transition-all"
+                            />
+                        </div>
+
                         <button
                             onClick={() => {
-                                if (petName.trim()) setStep(2);
-                                else alert('請輸入名字');
+                                if (!petName.trim()) return alert('請輸入名字');
+                                if (!petBirthday) return alert('請輸入生日');
+                                setStep(2);
                             }}
                             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl transition-transform active:scale-95"
                         >

@@ -6,15 +6,36 @@ import { AddLog } from './pages/AddLog';
 import { Settings } from './pages/Settings';
 import { LoginPage } from './pages/LoginPage';
 import { OnboardingPage } from './pages/OnboardingPage';
-import { loadGoogleScript, getAccessToken, signOut, tryAutoLogin } from './services/googleAuth';
+import { loadGoogleScript, getAccessToken, signOut, tryAutoLogin, handleAuthClick } from './services/googleAuth';
 import { getSettings } from './services/storage';
 import { AppSettings } from './types';
 
-// Create Context
-export const SettingsContext = createContext<AppSettings | null>(null);
+// Settings Context - includes settings and refresh function
+interface SettingsContextType {
+  settings: AppSettings;
+  refreshSettings: () => Promise<void>;
+}
+export const SettingsContext = createContext<SettingsContextType | null>(null);
 export const useSettings = () => {
   const context = useContext(SettingsContext);
   if (!context) throw new Error("useSettings must be used within SettingsContext.Provider");
+  return context.settings;
+};
+export const useSettingsContext = () => {
+  const context = useContext(SettingsContext);
+  if (!context) throw new Error("useSettingsContext must be used within SettingsContext.Provider");
+  return context;
+};
+
+// Auth Context for logout and switch account
+interface AuthContextType {
+  handleLogout: () => void;
+  handleSwitchAccount: () => Promise<void>;
+}
+export const AuthContext = createContext<AuthContextType | null>(null);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within AuthContext.Provider");
   return context;
 };
 
@@ -30,7 +51,12 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Failed to fetch settings", e);
     }
-  }
+  };
+
+  // Exposed refresh function for child components
+  const refreshSettings = async () => {
+    await fetchSettings();
+  };
 
   const handleLoginSuccess = async () => {
     setIsAuthenticated(true);
@@ -60,7 +86,20 @@ const App: React.FC = () => {
     signOut();
     setIsAuthenticated(false);
     setSettings(null);
-  }
+  };
+
+  const handleSwitchAccount = async () => {
+    // Sign out first, then trigger new login
+    signOut();
+    try {
+      await handleAuthClick();
+      await fetchSettings();
+    } catch (e) {
+      console.error("Failed to switch account", e);
+      setIsAuthenticated(false);
+      setSettings(null);
+    }
+  };
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
@@ -84,18 +123,20 @@ const App: React.FC = () => {
   }
 
   return (
-    <SettingsContext.Provider value={settings}>
-      <HashRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/add" element={<AddLog />} />
-            <Route path="/edit/:id" element={<AddLog />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
-        </Layout>
-      </HashRouter>
-    </SettingsContext.Provider>
+    <AuthContext.Provider value={{ handleLogout, handleSwitchAccount }}>
+      <SettingsContext.Provider value={{ settings, refreshSettings }}>
+        <HashRouter>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/add" element={<AddLog />} />
+              <Route path="/edit/:id" element={<AddLog />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </Layout>
+        </HashRouter>
+      </SettingsContext.Provider>
+    </AuthContext.Provider>
   );
 };
 

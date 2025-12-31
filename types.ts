@@ -10,6 +10,7 @@ export interface Owner {
 export interface PetProfile {
   name: string;
   type: 'CAT' | 'DOG';
+  birthday: string; // YYYY-MM-DD format
 }
 
 export interface AppSettings {

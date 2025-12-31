@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, CalendarDays, Sparkles, Droplets, XCircle, CheckCircle, HelpCircle, AlertCircle, Trash2, Edit, RefreshCw, Settings as SettingsIcon, Scale, ChevronUp } from 'lucide-react';
+import { Plus, CalendarDays, Sparkles, Droplets, XCircle, CheckCircle, HelpCircle, AlertCircle, Trash2, Edit, RefreshCw, Settings as SettingsIcon, Scale, ChevronUp, User, LogOut, UserPlus } from 'lucide-react';
 import { StatusCard } from '../components/StatusCard';
 import { getTodayStatus, getLogs, deleteLog } from '../services/storage';
 import { CareLog } from '../types';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { useSettings } from '../App';
+import { useSettings, useAuth } from '../App';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +22,20 @@ export const Home: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const { handleLogout, handleSwitchAccount } = useAuth();
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchData = async () => {
     setIsRefreshing(true);
@@ -226,6 +240,29 @@ export const Home: React.FC = () => {
   };
   const petMessage = generateMessage();
 
+  // Calculate days until next birthday
+  const getDaysUntilBirthday = () => {
+    const birthday = settings.pet.birthday;
+    if (!birthday) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [year, month, day] = birthday.split('-').map(Number);
+    let nextBirthday = new Date(today.getFullYear(), month - 1, day);
+    nextBirthday.setHours(0, 0, 0, 0);
+
+    // If birthday has passed this year, calculate for next year
+    if (nextBirthday < today) {
+      nextBirthday = new Date(today.getFullYear() + 1, month - 1, day);
+    }
+
+    const diffTime = nextBirthday.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+  const daysUntilBirthday = getDaysUntilBirthday();
+
   const getDailyStats = (dayLogs: CareLog[]) => {
     const urineCount = dayLogs.filter(l => l.urineStatus === 'HAS_URINE').length;
     const formedCount = dayLogs.filter(l => l.stoolType === 'FORMED').length;
@@ -262,16 +299,59 @@ export const Home: React.FC = () => {
               <RefreshCw className="w-4 h-4" />
             </button>
           </div>
-          <button
-            onClick={() => navigate('/settings')}
-            className="p-2 text-stone-400 hover:bg-stone-50 rounded-full transition-colors"
-          >
-            <SettingsIcon className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => navigate('/settings')}
+              className="p-2 text-stone-400 hover:bg-stone-50 rounded-full transition-colors"
+            >
+              <SettingsIcon className="w-6 h-6" />
+            </button>
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="p-2 text-stone-400 hover:bg-stone-50 rounded-full transition-colors"
+              >
+                <User className="w-6 h-6" />
+              </button>
+              {showUserMenu && (
+                <div className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-lg border border-stone-200 py-2 min-w-[160px] z-50 animate-fade-in">
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      handleSwitchAccount();
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-stone-50 flex items-center gap-3 transition-colors"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    切換帳戶
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      handleLogout();
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50 flex items-center gap-3 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    登出
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         <div className="text-center text-xs text-stone-400 mt-2">
           {new Date().toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' })}
         </div>
+        {daysUntilBirthday !== null && (
+          <div className="text-center text-xs mt-1">
+            {daysUntilBirthday === 0 ? (
+              <span className="text-orange-500 font-bold">🎂 今天是{settings.pet.name}的生日！🎉</span>
+            ) : (
+              <span className="text-stone-400">距離{settings.pet.name}生日還有 <span className="text-orange-500 font-medium">{daysUntilBirthday}</span> 天</span>
+            )}
+          </div>
+        )}
         <div className="text-center text-xs text-stone-400 mt-1">
           {settings.pet.name}想說: {petMessage}
         </div>
