@@ -64,8 +64,8 @@ export const Settings: React.FC = () => {
 
       {/* Birthday Verification Modal */}
       {showBirthdayModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl animate-fade-in">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-[280px] shadow-xl animate-fade-in">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Lock className="w-5 h-5 text-orange-500" />
