@@ -508,7 +508,8 @@ export const AddLog: React.FC = () => {
                                             <select
                                                 value={weightInt}
                                                 onChange={(e) => setWeightInt(Number(e.target.value))}
-                                                className="h-14 w-20 text-2xl font-bold text-center bg-white border-2 border-[#EA7500]/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#EA7500]/50 text-[#EA7500]"
+                                                className="h-14 w-20 text-2xl font-bold text-center bg-white border-2 border-[#EA7500]/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#EA7500]/50 text-[#EA7500] appearance-none"
+                                                style={{ textAlignLast: 'center' }}
                                             >
                                                 {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
                                                     <option key={n} value={n}>{n}</option>
@@ -518,7 +519,8 @@ export const AddLog: React.FC = () => {
                                             <select
                                                 value={weightDecimal}
                                                 onChange={(e) => setWeightDecimal(Number(e.target.value))}
-                                                className="h-14 w-20 text-2xl font-bold text-center bg-white border-2 border-[#EA7500]/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#EA7500]/50 text-[#EA7500]"
+                                                className="h-14 w-20 text-2xl font-bold text-center bg-white border-2 border-[#EA7500]/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#EA7500]/50 text-[#EA7500] appearance-none"
+                                                style={{ textAlignLast: 'center' }}
                                             >
                                                 {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
                                                     <option key={n} value={n}>{n}</option>
