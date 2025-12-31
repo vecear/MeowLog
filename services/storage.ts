@@ -53,7 +53,8 @@ export const saveLog = async (log: CareLog): Promise<void> => {
     // OR just save it as a field `uid`?
     // Let's trust Firestore ID.
     const { id, ...logData } = log;
-    await addDoc(collection(db, COLLECTION_NAME), logData);
+    const cleanData = JSON.parse(JSON.stringify(logData));
+    await addDoc(collection(db, COLLECTION_NAME), cleanData);
   } catch (e) {
     console.error("Failed to save log to Firebase", e);
     throw e;
@@ -65,7 +66,8 @@ export const updateLog = async (log: CareLog): Promise<void> => {
     const { id, ...logData } = log;
     if (!id) throw new Error("Log ID is required for update");
     const docRef = doc(db, COLLECTION_NAME, id);
-    await updateDoc(docRef, logData);
+    const cleanData = JSON.parse(JSON.stringify(logData));
+    await updateDoc(docRef, cleanData);
   } catch (e) {
     console.error("Failed to update log", e);
     throw e;
