@@ -1,6 +1,23 @@
 export type StoolType = 'FORMED' | 'UNFORMED' | 'DIARRHEA' | null;
 export type UrineStatus = 'HAS_URINE' | 'NO_URINE' | null;
 
+export interface Owner {
+  id: string;
+  name: string;
+  color: string; // Hex code
+}
+
+export interface PetProfile {
+  name: string;
+  type: 'CAT' | 'DOG';
+}
+
+export interface AppSettings {
+  pet: PetProfile;
+  owners: Owner[];
+  isConfigured: boolean;
+}
+
 export interface CareLog {
   id: string;
   timestamp: number; // Unix timestamp in milliseconds
@@ -15,7 +32,7 @@ export interface CareLog {
   urineStatus?: UrineStatus;
   isLitterClean?: boolean;
   weight?: number; // in kg, e.g. 4.5 (optional)
-  author: 'RURU' | 'CCL';
+  author: string; // Changed from literal to string (Owner ID or Name)
   note?: string;
 }
 
@@ -48,5 +65,5 @@ export interface WeightLog {
   id: string;
   timestamp: number;
   weight: number; // in kg, e.g. 4.5
-  author: 'RURU' | 'CCL';
+  author: string; // Changed from literal to string
 }

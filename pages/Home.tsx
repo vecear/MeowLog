@@ -5,9 +5,11 @@ import { StatusCard } from '../components/StatusCard';
 import { getTodayStatus, getLogs, deleteLog } from '../services/storage';
 import { CareLog } from '../types';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { useSettings } from '../App';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
+  const settings = useSettings();
   const [status, setStatus] = useState<any>({
     food: { morning: false, noon: false, evening: false, bedtime: false, isComplete: false },
     water: { morning: false, noon: false, evening: false, bedtime: false, isComplete: false },
@@ -69,8 +71,6 @@ export const Home: React.FC = () => {
     const monthlyData: { date: string; logs: CareLog[] }[] = [];
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth();
-
-    // Get number of days in month
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
     for (let i = daysInMonth; i >= 1; i--) {
@@ -134,18 +134,25 @@ export const Home: React.FC = () => {
     );
   };
 
+  // --- Dynamic Score Calculations ---
 
+  const calculatePoints = (log: CareLog) => {
+    return (log.actions.litter ? (log.isLitterClean ? 1 : 4) : 0) +
+      (log.actions.food ? 2 : 0) +
+      (log.actions.water ? 2 : 0) +
+      (log.actions.grooming ? 3 : 0) +
+      (log.actions.medication ? 2 : 0) +
+      (log.weight ? 2 : 0);
+  };
 
-  // ... (existing helper functions)
-
-  // Calculate scores for the last 7 days
   const getScoreData = () => {
     const today = new Date();
     const data = [];
-    let totalRuru = 0;
-    let totalCcl = 0;
+    const weeklyTotals: { [key: string]: number } = {};
 
-    // Create array for last 7 days (including today)
+    // Initialize weekly totals
+    settings.owners.forEach(o => weeklyTotals[o.id] = 0);
+
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
@@ -153,48 +160,45 @@ export const Home: React.FC = () => {
       const dayEnd = dayStart + 86400000;
       const dateStr = d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
 
-      let ruruDayScore = 0;
-      let cclDayScore = 0;
+      // Daily scores for each owner
+      const dailyScore: { [key: string]: any } = { date: dateStr };
+      settings.owners.forEach(o => dailyScore[o.id] = 0);
 
       logs.forEach(log => {
         if (log.timestamp >= dayStart && log.timestamp < dayEnd) {
-          const points = (log.actions.litter ? (log.isLitterClean ? 1 : 4) : 0) + (log.actions.food ? 2 : 0) + (log.actions.water ? 2 : 0) + (log.actions.grooming ? 3 : 0) + (log.actions.medication ? 2 : 0) + (log.weight ? 2 : 0);
-          if (log.author === 'RURU') {
-            ruruDayScore += points;
-            totalRuru += points;
-          }
-          if (log.author === 'CCL') {
-            cclDayScore += points;
-            totalCcl += points;
+          if (weeklyTotals[log.author] !== undefined) {
+            const points = calculatePoints(log);
+            dailyScore[log.author] += points;
+            weeklyTotals[log.author] += points;
           }
         }
       });
-
-      data.push({
-        date: dateStr,
-        RURU: ruruDayScore,
-        CCL: cclDayScore
-      });
+      data.push(dailyScore);
     }
-
-    return { data, totalRuru, totalCcl };
+    return { data, weeklyTotals };
   };
 
-  const { data: chartData, totalRuru: ruruScore, totalCcl: cclScore } = getScoreData();
-  const winner = ruruScore > cclScore ? 'RURU' : cclScore > ruruScore ? 'CCL' : '兩人';
+  const { data: chartData, weeklyTotals } = getScoreData();
 
-  // Calculate all-time total scores
+  // Find winner(s)
+  const maxScore = Math.max(...Object.values(weeklyTotals));
+  const winners = settings.owners.filter(o => weeklyTotals[o.id] === maxScore);
+  const isTie = winners.length > 1;
+  const isZero = maxScore === 0;
+
+  // All-time totals
   const getAllTimeTotals = () => {
-    let ruruTotal = 0;
-    let cclTotal = 0;
+    const totals: { [key: string]: number } = {};
+    settings.owners.forEach(o => totals[o.id] = 0);
     logs.forEach(log => {
-      const points = (log.actions.litter ? (log.isLitterClean ? 1 : 4) : 0) + (log.actions.food ? 2 : 0) + (log.actions.water ? 2 : 0) + (log.actions.grooming ? 3 : 0) + (log.actions.medication ? 2 : 0) + (log.weight ? 2 : 0);
-      if (log.author === 'RURU') ruruTotal += points;
-      if (log.author === 'CCL') cclTotal += points;
+      if (totals[log.author] !== undefined) {
+        totals[log.author] += calculatePoints(log);
+      }
     });
-    return { ruruTotal, cclTotal };
+    return totals;
   };
-  const { ruruTotal: ruruAllTime, cclTotal: cclAllTime } = getAllTimeTotals();
+  const allTimeTotals = getAllTimeTotals();
+
 
   // Get weight data for chart
   const getWeightChartData = () => {
@@ -209,17 +213,18 @@ export const Home: React.FC = () => {
   const weightChartData = getWeightChartData();
   const hasWeightData = weightChartData.length > 0;
 
-  // Generate random cat message
-  const generateCatMessage = () => {
-    const parts = ['喵', '~', '!'];
-    const additionalLength = Math.floor(Math.random() * 19) + 1; // 1 to 19 more chars
-    let message = '喵'; // Always start with 喵
+  // Generate random message
+  const generateMessage = () => {
+    const base = settings.pet.type === 'DOG' ? '汪' : '喵';
+    const parts = [base, '~', '!'];
+    const additionalLength = Math.floor(Math.random() * 19) + 1;
+    let message = base;
     for (let i = 0; i < additionalLength; i++) {
       message += parts[Math.floor(Math.random() * parts.length)];
     }
     return message;
   };
-  const catMessage = generateCatMessage();
+  const petMessage = generateMessage();
 
   const getDailyStats = (dayLogs: CareLog[]) => {
     const urineCount = dayLogs.filter(l => l.urineStatus === 'HAS_URINE').length;
@@ -233,9 +238,10 @@ export const Home: React.FC = () => {
     if (diarrheaCount > 0) stoolParts.push(`腹瀉${diarrheaCount}`);
 
     const stoolText = stoolParts.length > 0 ? stoolParts.join('，') : '0';
-
     return `(尿尿: ${urineCount}, 便便: ${stoolText})`;
   };
+
+  const getOwner = (id: string) => settings.owners.find(o => o.id === id);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -244,8 +250,10 @@ export const Home: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black text-stone-800 tracking-tight flex items-center gap-2">
-              <span className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-lg">🐱</span>
-              小賀の生活日記
+              <span className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-lg">
+                {settings.pet.type === 'DOG' ? '🐶' : '🐱'}
+              </span>
+              {settings.pet.name}の生活日記
             </h1>
             <button
               onClick={() => window.location.reload()}
@@ -265,7 +273,7 @@ export const Home: React.FC = () => {
           {new Date().toLocaleString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit' })}
         </div>
         <div className="text-center text-xs text-stone-400 mt-1">
-          小賀想說: {catMessage}
+          {settings.pet.name}想說: {petMessage}
         </div>
       </header>
 
@@ -273,30 +281,44 @@ export const Home: React.FC = () => {
       <section>
         <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 mb-4 border border-orange-100">
           <h3 className="text-center font-bold text-stone-700 mb-1">
-            {ruruScore === 0 && cclScore === 0 ? (
-              <>本週小賀<span className="text-[#CE0000] text-xl">還沒有愛</span></>
-            ) : ruruScore === cclScore ? (
-              <>本週小賀愛兩人<span className="text-[#CE0000] text-xl">一樣多</span></>
+            {isZero ? (
+              <>本週{settings.pet.name}<span className="text-[#CE0000] text-xl">還沒有愛</span></>
+            ) : isTie ? (
+              <>本週{settings.pet.name}愛大家<span className="text-[#CE0000] text-xl">一樣多</span></>
             ) : (
-              <>本週小賀更愛 <span className={`text-xl ${winner === 'RURU' ? 'text-orange-500' : 'text-blue-500'}`}>{winner}</span></>
+              <>本週{settings.pet.name}更愛 <span className="text-xl" style={{ color: winners[0].color }}>{winners[0].name}</span></>
             )}
           </h3>
-          <p className="text-center text-xs text-stone-400 mb-2">本週給小賀的愛</p>
-          <div className="flex justify-center gap-8 items-center text-sm font-medium mb-2">
-            <div className={`text-center text-orange-500 ${ruruScore > cclScore ? 'scale-110 font-bold' : ''} transition-transform`}>
-              RURU: <span className="text-lg">{ruruScore}</span> 分
-            </div>
-            <div className="h-4 w-px bg-stone-300"></div>
-            <div className={`text-center text-blue-500 ${cclScore > ruruScore ? 'scale-110 font-bold' : ''} transition-transform`}>
-              CCL: <span className="text-lg">{cclScore}</span> 分
-            </div>
-          </div>
-          <p className="text-center text-xs text-stone-400 mb-1">最初から</p>
-          <div className="text-center text-xs text-stone-400 mb-4">
-            <span className="text-orange-400 font-medium">RURU</span>累積<span className="text-orange-400 font-medium">{ruruAllTime}</span>分愛，<span className="text-blue-400 font-medium">CCL</span>累積<span className="text-blue-400 font-medium">{cclAllTime}</span>分愛
+          <p className="text-center text-xs text-stone-400 mb-2">本週給{settings.pet.name}的愛</p>
+
+          <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 items-center text-sm font-medium mb-4">
+            {settings.owners.map((owner, idx) => (
+              <React.Fragment key={owner.id}>
+                {idx > 0 && <div className="h-4 w-px bg-stone-300 hidden sm:block"></div>}
+                <div
+                  className={`text-center transition-transform ${weeklyTotals[owner.id] === maxScore && !isZero ? 'scale-110 font-bold' : ''}`}
+                  style={{ color: owner.color }}
+                >
+                  {owner.name}: <span className="text-lg">{weeklyTotals[owner.id]}</span> 分
+                </div>
+              </React.Fragment>
+            ))}
           </div>
 
-          <div className="h-[72px] w-full mb-2">
+          <p className="text-center text-xs text-stone-400 mb-1">最初から</p>
+          <div className="text-center text-xs text-stone-400 mb-4 flex flex-wrap justify-center gap-2">
+            {settings.owners.map((owner, idx) => (
+              <span key={owner.id}>
+                {idx > 0 && "，"}
+                <span style={{ color: owner.color }} className="font-medium">{owner.name}</span>
+                累積
+                <span style={{ color: owner.color }} className="font-medium">{allTimeTotals[owner.id]}</span>
+                分愛
+              </span>
+            ))}
+          </div>
+
+          <div className="h-[200px] w-full mb-2">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#fed7aa" opacity={0.5} />
@@ -318,22 +340,18 @@ export const Home: React.FC = () => {
                   itemStyle={{ fontSize: '12px' }}
                   labelStyle={{ fontSize: '12px', color: '#78716c', marginBottom: '4px' }}
                 />
-                <Line
-                  type="monotone"
-                  dataKey="RURU"
-                  stroke="#f97316"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: '#f97316', strokeWidth: 0 }}
-                  activeDot={{ r: 5 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="CCL"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: '#3b82f6', strokeWidth: 0 }}
-                  activeDot={{ r: 5 }}
-                />
+                {settings.owners.map(owner => (
+                  <Line
+                    key={owner.id}
+                    type="monotone"
+                    dataKey={owner.id} // Matches the key in data objects
+                    name={owner.name}
+                    stroke={owner.color}
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: owner.color, strokeWidth: 0 }}
+                    activeDot={{ r: 5 }}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -482,58 +500,67 @@ export const Home: React.FC = () => {
                     </span>
                   </h3>
                   <div className="space-y-3">
-                    {dayGroup.logs.map((log) => (
-                      <div key={log.id} className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex items-center justify-between relative overflow-hidden group">
-                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-stone-300"></div>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`
-                                text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wider
-                                ${log.author === 'RURU' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}
-                            `}>
-                              {log.author || '未知'}
-                            </span>
-                            <span className="text-xs text-stone-400 font-mono">
-                              {new Date(log.timestamp).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <div className="flex gap-2 items-center flex-wrap justify-end">
-                            {log.actions.food && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-medium">飼料</span>}
-                            {log.actions.water && <span className="bg-[#921AFF]/10 text-[#921AFF] px-2 py-1 rounded-md text-xs font-medium">飲水</span>}
-                            {log.actions.litter && (
-                              <div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md text-xs font-medium border border-emerald-100">
-                                <span className="mr-1">貓砂</span>
-                                {renderLitterDetails(log)}
-                              </div>
-                            )}
-                            {log.actions.grooming && <span className="bg-pink-100 text-pink-700 px-2 py-1 rounded-md text-xs font-medium">梳毛</span>}
-                            {log.actions.medication && <span className="bg-cyan-100 text-cyan-700 px-2 py-1 rounded-md text-xs font-medium">給藥</span>}
-                            {log.weight && (
-                              <span className="bg-[#EA7500]/10 text-[#EA7500] px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1">
-                                <Scale className="w-3 h-3" />
-                                {log.weight.toFixed(1)} kg
+                    {dayGroup.logs.map((log) => {
+                      const owner = getOwner(log.author);
+                      const ownerColor = owner?.color || '#9ca3af'; // gray-400 as default
+                      // Light generic background if needed, or specific light color derivative if we had it. Use generic opacity.
+
+                      return (
+                        <div key={log.id} className="bg-white p-4 rounded-xl shadow-sm border border-stone-100 flex items-center justify-between relative overflow-hidden group">
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-stone-300"></div>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2">
+                              <span
+                                style={{
+                                  backgroundColor: `${ownerColor}20`, // 20 hex alpha = ~12% opacity 
+                                  color: ownerColor
+                                }}
+                                className="text-[10px] px-1.5 py-0.5 rounded font-bold tracking-wider"
+                              >
+                                {owner?.name || '未知'}
                               </span>
-                            )}
+                              <span className="text-xs text-stone-400 font-mono">
+                                {new Date(log.timestamp).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex flex-row gap-1 whitespace-nowrap">
-                            <button
-                              onClick={(e) => handleEdit(log.id, e)}
-                              className="p-1.5 text-stone-300 hover:text-stone-600 hover:bg-stone-50 rounded-full transition-colors"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => handleDelete(log.id, e)}
-                              className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          <div className="flex flex-col items-end gap-2">
+                            <div className="flex gap-2 items-center flex-wrap justify-end">
+                              {log.actions.food && <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-xs font-medium">飼料</span>}
+                              {log.actions.water && <span className="bg-[#921AFF]/10 text-[#921AFF] px-2 py-1 rounded-md text-xs font-medium">飲水</span>}
+                              {log.actions.litter && (
+                                <div className="flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-1 rounded-md text-xs font-medium border border-emerald-100">
+                                  <span className="mr-1">貓砂</span>
+                                  {renderLitterDetails(log)}
+                                </div>
+                              )}
+                              {log.actions.grooming && <span className="bg-pink-100 text-pink-700 px-2 py-1 rounded-md text-xs font-medium">梳毛</span>}
+                              {log.actions.medication && <span className="bg-cyan-100 text-cyan-700 px-2 py-1 rounded-md text-xs font-medium">給藥</span>}
+                              {log.weight && (
+                                <span className="bg-[#EA7500]/10 text-[#EA7500] px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1">
+                                  <Scale className="w-3 h-3" />
+                                  {log.weight.toFixed(1)} kg
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-row gap-1 whitespace-nowrap">
+                              <button
+                                onClick={(e) => handleEdit(log.id, e)}
+                                className="p-1.5 text-stone-300 hover:text-stone-600 hover:bg-stone-50 rounded-full transition-colors"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={(e) => handleDelete(log.id, e)}
+                                className="p-1.5 text-stone-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               ))}

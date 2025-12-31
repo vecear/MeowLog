@@ -6,11 +6,13 @@ import { saveLog, getLog, updateLog, getLogs } from '../services/storage';
 import { CareLog, StoolType, UrineStatus } from '../types';
 import { useParams } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useSettings } from '../App';
 
 export const AddLog: React.FC = () => {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const isEditMode = !!id;
+    const settings = useSettings();
 
     // Helper function to format date in local timezone (YYYY-MM-DD)
     const formatLocalDate = (date: Date) => {
@@ -27,7 +29,9 @@ export const AddLog: React.FC = () => {
 
     const [date, setDate] = useState(defaultDate);
     const [time, setTime] = useState(defaultTime);
-    const [author, setAuthor] = useState<'RURU' | 'CCL'>('RURU');
+    // Default author to first owner, fallback to empty string if somehow no owners
+    const [author, setAuthor] = useState<string>(settings.owners[0]?.id || '');
+
     const [actions, setActions] = useState({
         food: false,
         water: false,
@@ -265,31 +269,31 @@ export const AddLog: React.FC = () => {
                                 <h3 className="text-sm font-bold uppercase tracking-wider">紀錄人</h3>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                {(['RURU', 'CCL'] as const).map((name) => {
-                                    const isActive = author === name;
-                                    let activeClass = '';
+                                {settings.owners.map((owner) => {
+                                    const isActive = author === owner.id;
 
-                                    if (isActive) {
-                                        if (name === 'RURU') {
-                                            activeClass = 'bg-orange-500 text-white shadow-lg shadow-orange-200 ring-2 ring-orange-100';
-                                        } else {
-                                            activeClass = 'bg-blue-500 text-white shadow-lg shadow-blue-200 ring-2 ring-blue-100';
-                                        }
-                                    } else {
-                                        activeClass = 'bg-stone-50 text-stone-400 hover:bg-stone-100';
-                                    }
+                                    // Use dynamic color logic
+                                    // We need to apply the color as background when active
+                                    // Since we have hex colors, we can use inline styles for generic support
 
                                     return (
                                         <button
-                                            key={name}
+                                            key={owner.id}
                                             type="button"
-                                            onClick={() => setAuthor(name)}
+                                            onClick={() => setAuthor(owner.id)}
+                                            style={{
+                                                backgroundColor: isActive ? owner.color : undefined,
+                                                color: isActive ? 'white' : undefined,
+                                                borderColor: isActive ? owner.color : undefined
+                                            }}
                                             className={`
-                                                py-3 px-4 rounded-xl font-bold transition-all duration-200
-                                                ${activeClass}
+                                                py-3 px-4 rounded-xl font-bold transition-all duration-200 border-2 border-transparent
+                                                ${isActive
+                                                    ? 'shadow-lg transform scale-105'
+                                                    : 'bg-stone-50 text-stone-400 hover:bg-stone-100'}
                                             `}
                                         >
-                                            {name}
+                                            {owner.name}
                                         </button>
                                     );
                                 })}

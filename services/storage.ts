@@ -1,161 +1,290 @@
-import { db } from './firebase';
-import { collection, addDoc, getDocs, deleteDoc, doc, query, orderBy, where, Timestamp, getDoc, updateDoc, limit } from 'firebase/firestore';
 import { CareLog, DayStatus, TaskProgress, WeightLog } from '../types';
+import { signOut } from './googleAuth';
 
-const COLLECTION_NAME = 'logs';
-const WEIGHT_COLLECTION_NAME = 'weight_logs';
+const LOGS_FILE_NAME = 'meowlog_data.json';
+const WEIGHT_LOGS_FILE_NAME = 'meowlog_weight_data.json';
 
-export const getLogs = async (): Promise<CareLog[]> => {
-  try {
-    const q = query(collection(db, COLLECTION_NAME), orderBy('timestamp', 'desc'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as CareLog));
-  } catch (e) {
-    console.error("Failed to load logs from Firebase", e);
-    return [];
+// --- Helper Functions to interact with Google Drive ---
+
+const handleAuthError = (e: any) => {
+  // Check for GAPI error structure or generic 401
+  const status = e?.status || e?.result?.error?.code;
+  if (status === 401) {
+    console.warn("Authentication expired (401). Signing out...");
+    signOut();
+    window.location.reload();
   }
 };
 
-export const getLog = async (id: string): Promise<CareLog | null> => {
+async function findFile(fileName: string): Promise<string | null> {
   try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() } as CareLog;
+    const response = await window.gapi.client.drive.files.list({
+      q: `name = '${fileName}' and trashed = false`,
+      fields: 'files(id, name)',
+      spaces: 'drive',
+    });
+    const files = response.result.files;
+    if (files && files.length > 0) {
+      return files[0].id; // Return the first matching file ID
     }
     return null;
   } catch (e) {
-    console.error("Failed to fetch log", e);
+    handleAuthError(e);
+    console.error(`Error finding file ${fileName}:`, e);
     return null;
   }
+}
+
+async function createFile(fileName: string, content: any[]): Promise<string> {
+  try {
+    const fileContent = JSON.stringify(content);
+    const file = new Blob([fileContent], { type: 'application/json' });
+    const metadata = {
+      name: fileName,
+      mimeType: 'application/json',
+    };
+
+    const accessToken = window.gapi.auth.getToken().access_token;
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', file);
+
+    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
+      body: form,
+    });
+
+    if (response.status === 401) {
+      handleAuthError({ status: 401 });
+      throw new Error("Authentication expired");
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to create file: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.id;
+  } catch (e) {
+    handleAuthError(e); // Catch generic errors too if needed, though 401 usually caught above or by fetch throwing? Fetch doesn't throw on 401 usually.
+    console.error(`Error creating file ${fileName}:`, e);
+    throw e;
+  }
+}
+
+async function readFile(fileId: string): Promise<any[]> {
+  try {
+    const response = await window.gapi.client.drive.files.get({
+      fileId: fileId,
+      alt: 'media',
+    });
+    // response.result should be the JSON object if simple get, or response.body if stream?
+    // gapi client usually parses JSON response if content-type is json.
+    return response.result as any[];
+  } catch (e) {
+    handleAuthError(e);
+    console.error("Error reading file:", e);
+    return [];
+  }
+}
+
+async function updateFile(fileId: string, content: any[]): Promise<void> {
+  try {
+    const fileContent = JSON.stringify(content);
+    const file = new Blob([fileContent], { type: 'application/json' });
+
+    const accessToken = window.gapi.auth.getToken().access_token;
+
+    const response = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+      method: 'PATCH',
+      headers: new Headers({
+        'Authorization': 'Bearer ' + accessToken,
+        'Content-Type': 'application/json'
+      }),
+      body: fileContent, // Simple upload for small JSON files is fine via body
+    });
+
+    if (response.status === 401) {
+      handleAuthError({ status: 401 });
+      throw new Error("Authentication expired");
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to update file: ${response.statusText}`);
+    }
+
+  } catch (e) {
+    handleAuthError(e);
+    console.error("Error updating file:", e);
+    throw e;
+  }
+}
+
+// --- Data Layer Impl ---
+// We will simply read the whole array, modify, and write it back.
+// Ideally we cache this locally to avoid too many requests.
+
+// Simple In-memory cache for this session
+let logsCache: CareLog[] | null = null;
+let weightLogsCache: WeightLog[] | null = null;
+let logsFileId: string | null = null;
+let weightLogsFileId: string | null = null;
+
+
+// --- Care Logs Functions ---
+
+const ensureLogsLoaded = async (): Promise<CareLog[]> => {
+  if (logsCache) return logsCache;
+
+  // 1. Find or Create File
+  if (!logsFileId) {
+    logsFileId = await findFile(LOGS_FILE_NAME);
+  }
+
+  if (!logsFileId) {
+    // Create new
+    logsFileId = await createFile(LOGS_FILE_NAME, []);
+    logsCache = [];
+    return [];
+  }
+
+  // 2. Read File
+  const content = await readFile(logsFileId);
+  logsCache = Array.isArray(content) ? content : [];
+  // Ensure dates are parsed if they were stored as strings (JSON standard)
+  // Our types say timestamp is number, so JSON.stringify/parse preserves it correctly.
+  return logsCache!;
+}
+
+
+export const getLogs = async (): Promise<CareLog[]> => {
+  const logs = await ensureLogsLoaded();
+  // Sort desc by timestamp
+  return logs.sort((a, b) => b.timestamp - a.timestamp);
+};
+
+export const getLog = async (id: string): Promise<CareLog | null> => {
+  const logs = await ensureLogsLoaded();
+  return logs.find(l => l.id === id) || null;
 };
 
 export const saveLog = async (log: CareLog): Promise<void> => {
-  try {
-    // Remove id from log if it exists (Firestore generates its own, or we use log.id as doc id?)
-    // Best practice: let Firestore generate ID or use the one we created.
-    // If we want to use the ID we generated:
-    // await setDoc(doc(db, COLLECTION_NAME, log.id), log);
-    // But since `log` object usually has ID, we can exclude it when adding?
-    // Let's use `addDoc` and let Firestore generate ID, BUT our app expects `id`.
-    // We should probably just store the log with its ID or omit ID.
-    // Let's keep it simple: Use `addDoc`. The returned doc ref has ID.
-    // But the UI generates an ID for optimistic UI? The AddLog page generated a UUID.
-    // Let's just save the whole object first.
-    // WAIT: If we use `addDoc`, the document ID is not inside the document data by default.
-    // When reading back, we map `doc.id` to `id`.
-    // So when saving, we should NOT save `id` field if we want to rely on Firestore ID.
-    // However, AddLog generates an ID.
-    // Let's remove `id` from the object before saving to avoid duplication/confusion,
-    // OR just save it as a field `uid`?
-    // Let's trust Firestore ID.
-    const { id, ...logData } = log;
-    const cleanData = JSON.parse(JSON.stringify(logData));
-    await addDoc(collection(db, COLLECTION_NAME), cleanData);
-  } catch (e) {
-    console.error("Failed to save log to Firebase", e);
-    throw e;
+  const logs = await ensureLogsLoaded();
+
+  // Add new log
+  // Warning: If log.id is not set, we should generate one. Check AddLog impl.
+  // Assuming log has id.
+
+  // If id exists, it might be an update? The original Firebase code differentiated updateLog and saveLog.
+  // saveLog seemed to match "addDoc" which implies new.
+  // But earlier I noted "Remove id from log if it exists...".
+  // Let's assume this is always NEW.
+
+  // Generate ID if missing (just in case)
+  if (!log.id) {
+    log.id = crypto.randomUUID();
+  }
+
+  logsCache = [log, ...logs];
+  // Sync to drive
+  if (logsFileId) await updateFile(logsFileId, logsCache);
+  else {
+    // Should have been created by ensureLogsLoaded, but safeguard
+    logsFileId = await createFile(LOGS_FILE_NAME, logsCache);
   }
 };
 
 export const updateLog = async (log: CareLog): Promise<void> => {
-  try {
-    const { id, ...logData } = log;
-    if (!id) throw new Error("Log ID is required for update");
-    const docRef = doc(db, COLLECTION_NAME, id);
-    const cleanData = JSON.parse(JSON.stringify(logData));
-    await updateDoc(docRef, cleanData);
-  } catch (e) {
-    console.error("Failed to update log", e);
-    throw e;
+  const logs = await ensureLogsLoaded();
+  const index = logs.findIndex(l => l.id === log.id);
+  if (index !== -1) {
+    logs[index] = log;
+    logsCache = [...logs];
+    if (logsFileId) await updateFile(logsFileId, logsCache);
+  } else {
+    throw new Error("Log not found to update");
   }
 };
 
 export const deleteLog = async (id: string): Promise<void> => {
-  try {
-    await deleteDoc(doc(db, COLLECTION_NAME, id));
-  } catch (e) {
-    console.error("Failed to delete log", e);
-    throw e;
-  }
+  const logs = await ensureLogsLoaded();
+  const newLogs = logs.filter(l => l.id !== id);
+  logsCache = newLogs;
+  if (logsFileId) await updateFile(logsFileId, logsCache);
 };
 
 export const clearAllLogs = async (): Promise<void> => {
-  // Warning: Deleting all documents in a collection from client is expensive/not direct.
-  // We have to list and delete one by one.
-  const logs = await getLogs();
-  const batchPromises = logs.map(log => deleteLog(log.id));
-  await Promise.all(batchPromises);
+  logsCache = [];
+  if (logsFileId) await updateFile(logsFileId, logsCache);
 };
 
-// Weight Log Functions
-export const getWeightLogs = async (): Promise<WeightLog[]> => {
-  try {
-    const q = query(collection(db, WEIGHT_COLLECTION_NAME), orderBy('timestamp', 'desc'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as WeightLog));
-  } catch (e) {
-    console.error("Failed to load weight logs from Firebase", e);
+
+// --- Weight Log Functions ---
+
+const ensureWeightLogsLoaded = async (): Promise<WeightLog[]> => {
+  if (weightLogsCache) return weightLogsCache;
+
+  if (!weightLogsFileId) {
+    weightLogsFileId = await findFile(WEIGHT_LOGS_FILE_NAME);
+  }
+
+  if (!weightLogsFileId) {
+    weightLogsFileId = await createFile(WEIGHT_LOGS_FILE_NAME, []);
+    weightLogsCache = [];
     return [];
   }
+
+  const content = await readFile(weightLogsFileId);
+  weightLogsCache = Array.isArray(content) ? content : [];
+  return weightLogsCache!;
+}
+
+export const getWeightLogs = async (): Promise<WeightLog[]> => {
+  const logs = await ensureWeightLogsLoaded();
+  return logs.sort((a, b) => b.timestamp - a.timestamp);
 };
 
 export const getLatestWeightLog = async (): Promise<WeightLog | null> => {
-  try {
-    const q = query(
-      collection(db, WEIGHT_COLLECTION_NAME),
-      orderBy('timestamp', 'desc'),
-      limit(1)
-    );
-    const querySnapshot = await getDocs(q);
-    if (querySnapshot.empty) return null;
-    const doc = querySnapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as WeightLog;
-  } catch (e) {
-    console.error("Failed to get latest weight log", e);
-    return null;
-  }
+  const logs = await ensureWeightLogsLoaded();
+  if (logs.length === 0) return null;
+  logs.sort((a, b) => b.timestamp - a.timestamp);
+  return logs[0];
 };
 
 export const saveWeightLog = async (log: WeightLog): Promise<void> => {
-  try {
-    const { id, ...logData } = log;
-    await addDoc(collection(db, WEIGHT_COLLECTION_NAME), logData);
-  } catch (e) {
-    console.error("Failed to save weight log to Firebase", e);
-    throw e;
-  }
+  const logs = await ensureWeightLogsLoaded();
+  // Assuming new
+  if (!log.id) log.id = crypto.randomUUID();
+
+  weightLogsCache = [log, ...logs];
+  if (weightLogsFileId) await updateFile(weightLogsFileId, weightLogsCache);
+  else weightLogsFileId = await createFile(WEIGHT_LOGS_FILE_NAME, weightLogsCache);
 };
 
 export const deleteWeightLog = async (id: string): Promise<void> => {
-  try {
-    await deleteDoc(doc(db, WEIGHT_COLLECTION_NAME, id));
-  } catch (e) {
-    console.error("Failed to delete weight log", e);
-    throw e;
-  }
+  const logs = await ensureWeightLogsLoaded();
+  const newLogs = logs.filter(l => l.id !== id);
+  weightLogsCache = newLogs;
+  if (weightLogsFileId) await updateFile(weightLogsFileId, weightLogsCache);
 };
 
 export const updateWeightLog = async (log: WeightLog): Promise<void> => {
-  try {
-    const { id, ...logData } = log;
-    if (!id) throw new Error("Weight log ID is required for update");
-    const docRef = doc(db, WEIGHT_COLLECTION_NAME, id);
-    await updateDoc(docRef, logData);
-  } catch (e) {
-    console.error("Failed to update weight log", e);
-    throw e;
+  const logs = await ensureWeightLogsLoaded();
+  const index = logs.findIndex(l => l.id === log.id);
+  if (index !== -1) {
+    logs[index] = log;
+    weightLogsCache = [...logs];
+    if (weightLogsFileId) await updateFile(weightLogsFileId, weightLogsCache);
+  } else {
+    throw new Error("Weight log not found");
   }
 };
 
-// Helper for status calculation
-// Helper for status calculation
+
+// --- Status Helper (Client-side calc, same as before) ---
+// Since we have all logs locally, this is even easier/faster.
+
 const getTimePeriod = (timestamp: number): 'morning' | 'noon' | 'evening' | 'bedtime' => {
   const hour = new Date(timestamp).getHours();
   if (hour < 11) return 'morning'; // 00:00 - 10:59
@@ -164,19 +293,13 @@ const getTimePeriod = (timestamp: number): 'morning' | 'noon' | 'evening' | 'bed
   return 'bedtime'; // 21:00 - 23:59
 };
 
-// Optimization: We could query only today's logs from Firestore
 export const getTodayStatus = async (): Promise<DayStatus> => {
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
   try {
-    // Query logs where timestamp >= startOfDay
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      where('timestamp', '>=', startOfDay)
-    );
-    const querySnapshot = await getDocs(q);
-    const todayLogs = querySnapshot.docs.map(doc => ({ ...doc.data() } as CareLog));
+    const allLogs = await ensureLogsLoaded();
+    const todayLogs = allLogs.filter(l => l.timestamp >= startOfDay);
 
     const initProgress = (): TaskProgress => ({
       morning: false,
@@ -253,7 +376,6 @@ export const getTodayStatus = async (): Promise<DayStatus> => {
 
   } catch (e) {
     console.error("Failed to calculate today's status", e);
-    // Return empty status on error
     return {
       food: { morning: false, noon: false, evening: false, bedtime: false, isComplete: false },
       water: { morning: false, noon: false, evening: false, bedtime: false, isComplete: false },
@@ -262,5 +384,62 @@ export const getTodayStatus = async (): Promise<DayStatus> => {
       medication: { morning: false, noon: false, evening: false, bedtime: false, isComplete: false },
       weight: { morning: false, noon: false, evening: false, bedtime: false, isComplete: false }
     };
+  }
+};
+
+// --- Settings Functions ---
+import { AppSettings } from '../types';
+import { SETTINGS_FILE_NAME } from '../constants';
+
+let settingsCache: AppSettings | null = null;
+let settingsFileId: string | null = null;
+
+const ensureSettingsLoaded = async (): Promise<AppSettings> => {
+  if (settingsCache) return settingsCache;
+
+  if (!settingsFileId) {
+    settingsFileId = await findFile(SETTINGS_FILE_NAME);
+  }
+
+  if (!settingsFileId) {
+    // Return default unconfigured state, but don't create file yet until they save?
+    // Or handle creation on save.
+    // Let's return a default object indicating not configured.
+    return {
+      pet: { name: '', type: 'CAT' },
+      owners: [],
+      isConfigured: false
+    };
+  }
+
+  const content = await readFile(settingsFileId);
+  // content should be the object directly if readFile returns JSON, 
+  // BUT readFile impl returns array (as any[]) in previous code?
+  // Wait, readFile: `return response.result as any[];`
+  // If the file content is an object (not array), this cast might be misleading but JS runtime is fine.
+  // Let's check readFile impl.
+  // Ideally readFile should return `any`.
+
+  settingsCache = content as unknown as AppSettings;
+  return settingsCache;
+}
+
+export const getSettings = async (): Promise<AppSettings> => {
+  return await ensureSettingsLoaded();
+};
+
+export const saveSettings = async (settings: AppSettings): Promise<void> => {
+  settingsCache = settings;
+  if (!settingsFileId) {
+    settingsFileId = await findFile(SETTINGS_FILE_NAME);
+  }
+
+  if (settingsFileId) {
+    // cast to any[] to satisfy current helper logic if needed, or update helper
+    // updateFile helper expects `any[]`. Let's fix helper or cast.
+    // Actually `updateFile` does `JSON.stringify(content)`. It doesn't care if array or object.
+    await updateFile(settingsFileId, settings as any);
+  } else {
+    settingsFileId = await createFile(SETTINGS_FILE_NAME, settings as any);
   }
 };
